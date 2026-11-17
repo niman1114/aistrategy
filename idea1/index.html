@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>買い出しリスト</title>
+<meta name="description" content="今週食べたいものと冷蔵庫にあるものを記録すると、足りない食材だけの買い出しリストを作ります。">
+<style>
+  :root {
+    --bg: #f5f7f2;
+    --surface: #ffffff;
+    --surface-2: #eef2e8;
+    --text: #1f2a1f;
+    --muted: #5f6b5d;
+    --line: #dde4d5;
+    --accent: #3f7d3a;
+    --accent-ink: #ffffff;
+    --accent-soft: #e2efdc;
+    --amber: #8a5a00;
+    --amber-soft: #fbefd5;
+    --shadow: 0 1px 2px rgba(30, 50, 30, .06), 0 4px 16px rgba(30, 50, 30, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151a15; --surface: #1e241d; --surface-2: #262e25; --text: #e9efe5; --muted: #a6b2a2;
+      --line: #354033; --accent: #8fd18a; --accent-ink: #10200f; --accent-soft: #24371f;
+      --amber: #f0bf62; --amber-soft: #3a2f17; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151a15; --surface: #1e241d; --surface-2: #262e25; --text: #e9efe5; --muted: #a6b2a2;
+    --line: #354033; --accent: #8fd18a; --accent-ink: #10200f; --accent-soft: #24371f;
+    --amber: #f0bf62; --amber-soft: #3a2f17; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 16px;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 72px; }
+  header h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  header p { margin: 0 0 20px; color: var(--muted); font-size: .92rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 1.05rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .card .lead { margin: 0 0 12px; font-size: .84rem; color: var(--muted); }
+  .step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: .8rem; font-weight: 700; flex: none; }
+  h3.mini { font-size: .85rem; color: var(--muted); font-weight: 600; margin: 14px 0 6px; }
+
+  input[type="text"], select {
+    font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; min-height: 44px; width: 100%;
+  }
+  input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type="range"] { accent-color: var(--accent); width: 100%; height: 28px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > input[type="text"] { flex: 1; min-width: 0; }
+
+  .btn { font: inherit; font-size: .9rem; border: 1px solid var(--accent); background: transparent; color: var(--accent);
+    border-radius: 999px; padding: 8px 16px; min-height: 44px; cursor: pointer; white-space: nowrap; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { border-color: var(--line); color: var(--muted); }
+  .btn.small { min-height: 34px; padding: 4px 12px; font-size: .82rem; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: inherit; font-size: .9rem; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    border-radius: 999px; padding: 7px 13px; min-height: 40px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); }
+
+  .slider-label { display: flex; justify-content: space-between; align-items: baseline; font-size: .9rem; color: var(--muted); }
+  .slider-label b { color: var(--text); font-size: 1.15rem; }
+
+  /* 選んだ料理 */
+  .picked { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .picked li { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 12px; padding: 8px 10px 8px 14px; }
+  .picked .nm { flex: 1; min-width: 0; }
+  .picked .nm b { display: block; }
+  .picked .nm small { color: var(--muted); font-size: .76rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stepper { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; flex: none; }
+  .stepper button { width: 36px; height: 36px; border: 0; background: transparent; color: var(--text); font-size: 1.1rem; cursor: pointer; border-radius: 50%; }
+  .stepper span { min-width: 2.6em; text-align: center; font-weight: 700; font-size: .9rem; }
+  .x { width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 1.1rem; cursor: pointer; border-radius: 50%; flex: none; }
+  .empty { color: var(--muted); font-size: .88rem; padding: 10px 0 0; }
+
+  details.custom { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  details.custom summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .92rem; }
+  .custom-form { display: grid; gap: 8px; margin-top: 10px; }
+  .hint { font-size: .78rem; color: var(--muted); margin: 0; }
+
+  /* 冷蔵庫 */
+  .fridge { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .fitem { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); padding: 2px 2px 2px 12px; }
+  .fitem.full { background: var(--accent-soft); border-color: var(--accent); }
+  .fitem.low { background: var(--amber-soft); border-color: var(--amber); }
+  .fitem button.lv { font: inherit; font-size: .9rem; background: transparent; border: 0; color: var(--text); cursor: pointer; padding: 6px 4px; min-height: 36px; }
+  .fitem .tag { font-size: .72rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--surface); margin-left: 4px; }
+  .fitem.full .tag { color: var(--accent); }
+  .fitem.low .tag { color: var(--amber); }
+
+  /* リスト */
+  .progress { display: flex; align-items: center; gap: 10px; margin: 6px 0 14px; font-size: .85rem; color: var(--muted); }
+  .bar { flex: 1; height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s; }
+  .section { margin-bottom: 14px; }
+  .section h3 { font-size: .9rem; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+  .section h3 .cnt { color: var(--muted); font-weight: 400; font-size: .8rem; }
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { border-bottom: 1px solid var(--line); }
+  .list label { display: flex; align-items: center; gap: 12px; padding: 10px 2px; cursor: pointer; min-height: 48px; }
+  .list input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+  .list .name { flex: 1; min-width: 0; }
+  .list .name small { display: block; color: var(--muted); font-size: .74rem; }
+  .list .qty { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .list .warn { font-size: .72rem; color: var(--amber); background: var(--amber-soft); border-radius: 999px; padding: 1px 8px; margin-left: 6px; font-weight: 700; }
+  .list li.got .name, .list li.got .qty { text-decoration: line-through; opacity: .45; }
+  .skipped { font-size: .84rem; color: var(--muted); background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .stat { background: var(--surface-2); border-radius: 12px; padding: 10px; text-align: center; }
+  .stat b { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .74rem; color: var(--muted); }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; background: var(--text); color: var(--bg);
+    padding: 10px 18px; border-radius: 999px; font-size: .9rem; transition: .25s; pointer-events: none; z-index: 10; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* PC：左に入力、右にリスト */
+  @media (min-width: 1000px) {
+    .wrap { max-width: 1280px; padding: 24px 24px 48px; }
+    .layout { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(400px, 520px); gap: 20px; align-items: start; }
+    .col-list { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+    .col-list .card { margin-bottom: 0; }
+  }
+  @media print {
+    body { background: #fff; }
+    .col-input, .actions, .progress, header p { display: none !important; }
+    .layout { display: block !important; }
+    .col-list { position: static !important; max-height: none !important; overflow: visible !important; }
+    .card { box-shadow: none; border: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🛒 一週間の買い出しリスト</h1>
+    <p>今週食べたいものと冷蔵庫にあるものを記録すると、足りないものだけのリストを作ります。入力はこの端末に保存されます。</p>
+  </header>
+
+  <div class="layout">
+    <div class="col-input">
+      <section class="card">
+        <h2><span class="step">1</span>何人分つくる？</h2>
+        <div class="slider-label"><span>1回あたりの人数</span><b id="servingsVal">2人分</b></div>
+        <input type="range" id="servings" min="1" max="6" step="1" value="2" aria-label="1回あたりの人数">
+      </section>
+
+      <section class="card">
+        <h2><span class="step">2</span>今週食べたいもの</h2>
+        <p class="lead">タップで追加。＋−で「今週何回つくるか」を変えられます。</p>
+        <div class="chips" id="dishChips"></div>
+        <ul class="picked" id="picked"></ul>
+
+        <details class="custom">
+          <summary>＋ 自分の料理を登録する</summary>
+          <div class="custom-form">
+            <input type="text" id="customName" placeholder="料理名（例：鶏の照り焼き）">
+            <input type="text" id="customIngr" placeholder="材料（例：鶏もも肉 300g、ねぎ 1本、しょうゆ）">
+            <p class="hint">材料は「、」か「,」で区切ります。量は2人分で書いてください（省略すると「1つ」）。</p>
+            <div class="row"><button type="button" class="btn primary" id="addCustom">登録して追加</button></div>
+          </div>
+        </details>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">3</span>冷蔵庫・ストックにあるもの</h2>
+        <p class="lead">タップするたびに「十分ある」→「少しある」→ 削除 と切り替わります。</p>
+        <div class="row">
+          <input type="text" id="fridgeInput" list="ingredientList" placeholder="例：玉ねぎ、卵、しょうゆ" aria-label="冷蔵庫にあるもの">
+          <button type="button" class="btn primary" id="addFridge">追加</button>
+        </div>
+        <datalist id="ingredientList"></datalist>
+        <h3 class="mini">よく使うもの</h3>
+        <div class="chips" id="fridgeQuick"></div>
+        <div class="fridge" id="fridge"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">4</span>料理以外に買うもの</h2>
+        <p class="lead">牛乳・パン・日用品など、毎週のものを追加できます。</p>
+        <div class="row">
+          <input type="text" id="extraInput" placeholder="例：牛乳、ヨーグルト、ラップ" aria-label="追加で買うもの">
+          <button type="button" class="btn primary" id="addExtra">追加</button>
+        </div>
+        <div class="chips" id="extraQuick" style="margin-top:10px"></div>
+      </section>
+    </div>
+
+    <div class="col-list">
+      <section class="card" id="listCard">
+        <h2>📝 買い出しリスト</h2>
+        <div class="stats" id="stats"></div>
+        <div class="progress"><span id="progText">0 / 0</span><div class="bar"><i id="progBar"></i></div></div>
+        <div id="list"></div>
+        <div id="skipped"></div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="copy">リストをコピー</button>
+          <button type="button" class="btn" id="toFridge">買ったものを冷蔵庫へ</button>
+          <button type="button" class="btn" id="print">印刷</button>
+          <button type="button" class="btn ghost" id="reset">新しい週をはじめる</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  // ---------- データ ----------
+  const CATS = [
+    { id: "veg", name: "🥬 野菜・きのこ" },
+    { id: "meat", name: "🥩 肉・魚" },
+    { id: "dairy", name: "🥚 卵・乳製品・豆腐" },
+    { id: "dry", name: "🍝 麺・乾物・缶詰" },
+    { id: "season", name: "🧂 調味料" },
+    { id: "other", name: "🧺 その他" }
+  ];
+  // 食材名 → 売り場
+  const CAT_OF = {
+    "玉ねぎ": "veg", "じゃがいも": "veg", "にんじん": "veg", "キャベツ": "veg", "もやし": "veg", "ピーマン": "veg",
+    "長ねぎ": "veg", "白菜": "veg", "しいたけ": "veg", "大根": "veg", "レタス": "veg", "トマト": "veg", "ほうれん草": "veg",
+    "しょうが": "veg", "にんにく": "veg", "きゅうり": "veg", "なす": "veg", "ブロッコリー": "veg", "しめじ": "veg",
+    "豚こま肉": "meat", "牛こま肉": "meat", "鶏もも肉": "meat", "鶏むね肉": "meat", "豚ひき肉": "meat", "合いびき肉": "meat",
+    "豚ロース薄切り": "meat", "生鮭": "meat", "ベーコン": "meat", "ツナ缶": "dry",
+    "卵": "dairy", "豆腐": "dairy", "牛乳": "dairy", "バター": "dairy", "チーズ": "dairy", "ヨーグルト": "dairy",
+    "パスタ": "dry", "焼きそば麺": "dry", "トマト缶": "dry", "カレールウ": "dry", "鍋つゆ": "dry", "わかめ": "dry", "米": "dry", "パン粉": "dry", "うどん": "dry",
+    "しょうゆ": "season", "みりん": "season", "味噌": "season", "めんつゆ": "season", "豆板醤": "season", "ケチャップ": "season",
+    "砂糖": "season", "塩": "season", "こしょう": "season", "酒": "season", "サラダ油": "season", "マヨネーズ": "season", "ソース": "season", "鶏ガラスープの素": "season", "片栗粉": "season"
+  };
+  const KEYWORD_CAT = [
+    [/肉|鮭|さけ|鯖|さば|魚|えび|エビ|いか|たら|ハム|ソーセージ|ベーコン/, "meat"],
+    [/卵|たまご|乳|チーズ|ヨーグルト|豆腐|納豆|油揚げ|バター/, "dairy"],
+    [/麺|パスタ|うどん|そば|缶|米|パン|のり|わかめ|ルウ|つゆの素/, "dry"],
+    [/しょうゆ|醤油|みりん|味噌|みそ|酢|塩|砂糖|こしょう|ソース|だし|ケチャップ|マヨ|油|酒|つゆ|素$/, "season"],
+    [/菜|ねぎ|いも|きのこ|たけ|しめじ|なす|トマト|キャベツ|大根|にんじん|玉ねぎ|ピーマン|もやし|レタス|ごぼう|かぼちゃ|しょうが|にんにく|果|りんご|バナナ/, "veg"]
+  ];
+  // 料理（2人分）: [食材名, 量, 単位]  量が0のものは「家にあるか確認」する調味料
+  const PRESETS = [
+    { id: "curry", name: "カレー", emoji: "🍛", items: [["豚こま肉", 200, "g"], ["じゃがいも", 2, "個"], ["にんじん", 1, "本"], ["玉ねぎ", 1, "個"], ["カレールウ", 0.5, "箱"]] },
+    { id: "nikujaga", name: "肉じゃが", emoji: "🥔", items: [["牛こま肉", 150, "g"], ["じゃがいも", 3, "個"], ["玉ねぎ", 1, "個"], ["にんじん", 0.5, "本"], ["しょうゆ", 0, ""], ["みりん", 0, ""]] },
+    { id: "oyako", name: "親子丼", emoji: "🍳", items: [["鶏もも肉", 250, "g"], ["卵", 3, "個"], ["玉ねぎ", 1, "個"], ["めんつゆ", 0, ""]] },
+    { id: "mabo", name: "麻婆豆腐", emoji: "🌶️", items: [["豆腐", 1, "丁"], ["豚ひき肉", 150, "g"], ["長ねぎ", 0.5, "本"], ["豆板醤", 0, ""], ["片栗粉", 0, ""]] },
+    { id: "sake", name: "鮭の塩焼き", emoji: "🐟", items: [["生鮭", 2, "切れ"], ["大根", 0.25, "本"], ["塩", 0, ""]] },
+    { id: "hamburg", name: "ハンバーグ", emoji: "🍔", items: [["合いびき肉", 300, "g"], ["玉ねぎ", 1, "個"], ["卵", 1, "個"], ["パン粉", 0, ""], ["ケチャップ", 0, ""], ["レタス", 0.25, "玉"]] },
+    { id: "shogayaki", name: "生姜焼き", emoji: "🐖", items: [["豚ロース薄切り", 250, "g"], ["玉ねぎ", 0.5, "個"], ["キャベツ", 0.25, "玉"], ["しょうが", 1, "かけ"], ["しょうゆ", 0, ""]] },
+    { id: "yasai", name: "野菜炒め", emoji: "🥬", items: [["豚こま肉", 150, "g"], ["キャベツ", 0.25, "玉"], ["もやし", 1, "袋"], ["にんじん", 0.5, "本"], ["ピーマン", 2, "個"]] },
+    { id: "pasta", name: "ミートソース", emoji: "🍝", items: [["パスタ", 200, "g"], ["合いびき肉", 200, "g"], ["玉ねぎ", 1, "個"], ["トマト缶", 1, "缶"], ["ケチャップ", 0, ""]] },
+    { id: "nabe", name: "寄せ鍋", emoji: "🍲", items: [["白菜", 0.25, "玉"], ["鶏もも肉", 250, "g"], ["長ねぎ", 1, "本"], ["しいたけ", 4, "個"], ["豆腐", 1, "丁"], ["鍋つゆ", 1, "袋"]] },
+    { id: "yakisoba", name: "焼きそば", emoji: "🥢", items: [["焼きそば麺", 2, "玉"], ["豚こま肉", 150, "g"], ["キャベツ", 0.25, "玉"], ["もやし", 1, "袋"]] },
+    { id: "miso", name: "具だくさん味噌汁", emoji: "🥣", items: [["豆腐", 0.5, "丁"], ["長ねぎ", 0.5, "本"], ["わかめ", 0, ""], ["味噌", 0, ""]] }
+  ];
+  const FRIDGE_QUICK = ["玉ねぎ", "にんじん", "じゃがいも", "卵", "長ねぎ", "キャベツ", "豆腐", "しょうゆ", "みりん", "味噌", "めんつゆ", "ケチャップ", "塩"];
+  const EXTRA_QUICK = ["牛乳", "食パン", "ヨーグルト", "納豆", "バナナ", "米", "コーヒー", "ラップ"];
+  // 端数を切り上げて「買う単位」にする単位
+  const ROUND_UP = ["玉", "箱", "本", "丁", "袋", "缶", "個", "切れ", "かけ", "パック", "つ"];
+
+  // ---------- 状態（端末に保存） ----------
+  const KEY = "kaidashi-list-v1";
+  const fresh = () => ({ servings: 2, dishes: [], custom: [], fridge: [], extras: [], got: {} });
+  let st = fresh();
+  try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && Array.isArray(s.dishes)) st = Object.assign(fresh(), s); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const norm = s => String(s).trim().replace(/\s+/g, "").replace(/[ァ-ン]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).toLowerCase();
+  const allDishes = () => PRESETS.concat(st.custom);
+  const findDish = id => allDishes().find(d => d.id === id);
+  const catOf = name => {
+    if (CAT_OF[name]) return CAT_OF[name];
+    for (const [re, c] of KEYWORD_CAT) if (re.test(name)) return c;
+    return "other";
+  };
+
+  // ---------- 入力UI ----------
+  function renderDishChips() {
+    $("dishChips").innerHTML = allDishes().map(d => {
+      const on = st.dishes.some(x => x.id === d.id);
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-id="${esc(d.id)}" aria-pressed="${on}">${d.emoji || "🍽️"} ${esc(d.name)}</button>`;
+    }).join("");
+  }
+  $("dishChips").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    const p = st.dishes.find(x => x.id === b.dataset.id);
+    if (p) p.times++; else st.dishes.push({ id: b.dataset.id, times: 1 });
+    update();
+  });
+
+  function renderPicked() {
+    if (!st.dishes.length) { $("picked").innerHTML = `<li class="empty" style="background:none;padding:0">まだ選ばれていません。上のボタンから選んでください。</li>`; return; }
+    $("picked").innerHTML = st.dishes.map(p => {
+      const d = findDish(p.id); if (!d) return "";
+      const ing = d.items.map(i => i[0]).join("・");
+      return `<li><div class="nm"><b>${d.emoji || "🍽️"} ${esc(d.name)}</b><small>${esc(ing)}</small></div>
+        <div class="stepper"><button type="button" data-act="dec" data-id="${esc(p.id)}" aria-label="${esc(d.name)}を1回減らす">−</button><span>${p.times}回</span><button type="button" data-act="inc" data-id="${esc(p.id)}" aria-label="${esc(d.name)}を1回増やす">＋</button></div>
+        <button type="button" class="x" data-act="del" data-id="${esc(p.id)}" aria-label="${esc(d.name)}を外す">✕</button></li>`;
+    }).join("");
+  }
+  $("picked").addEventListener("click", e => {
+    const b = e.target.closest("button[data-act]"); if (!b) return;
+    const i = st.dishes.findIndex(x => x.id === b.dataset.id); if (i < 0) return;
+    if (b.dataset.act === "inc") st.dishes[i].times = Math.min(7, st.dishes[i].times + 1);
+    if (b.dataset.act === "dec") { st.dishes[i].times--; if (st.dishes[i].times <= 0) st.dishes.splice(i, 1); }
+    if (b.dataset.act === "del") st.dishes.splice(i, 1);
+    update();
+  });
+
+  // 自分の料理
+  function parseIngredients(text) {
+    return text.split(/[、,，\n]/).map(s => s.trim()).filter(Boolean).map(s => {
+      const m = s.match(/^(.+?)\s*([0-9０-９.．/／]+)\s*([^\s0-9]*)$/);
+      if (!m) return [s, 1, "つ"];
+      let n = m[2].replace(/[０-９．／]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+      n = n.includes("/") ? (Number(n.split("/")[0]) / Number(n.split("/")[1])) : Number(n);
+      return [m[1].trim(), isFinite(n) && n > 0 ? n : 1, m[3] || "つ"];
+    });
+  }
+  $("addCustom").onclick = () => {
+    const name = $("customName").value.trim();
+    const items = parseIngredients($("customIngr").value);
+    if (!name) { toast("料理名を入れてください"); $("customName").focus(); return; }
+    if (!items.length) { toast("材料を1つ以上入れてください"); $("customIngr").focus(); return; }
+    const id = "c" + Date.now();
+    st.custom.push({ id, name, emoji: "⭐", items });
+    st.dishes.push({ id, times: 1 });
+    $("customName").value = ""; $("customIngr").value = "";
+    toast(`「${name}」を登録しました`);
+    update();
+  };
+
+  // 冷蔵庫
+  function addFridge(raw, level) {
+    raw.split(/[、,，\s]+/).map(s => s.trim()).filter(Boolean).forEach(name => {
+      const f = st.fridge.find(x => norm(x.name) === norm(name));
+      if (f) f.level = level || f.level; else st.fridge.push({ name, level: level || "full" });
+    });
+  }
+  $("addFridge").onclick = () => { if ($("fridgeInput").value.trim()) { addFridge($("fridgeInput").value); $("fridgeInput").value = ""; update(); } };
+  $("fridgeInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("addFridge").click(); } });
+  $("fridgeQuick").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    const i = st.fridge.findIndex(x => norm(x.name) === norm(b.dataset.n));
+    if (i >= 0) st.fridge.splice(i, 1); else addFridge(b.dataset.n);
+    update();
+  });
+  $("fridge").addEventListener("click", e => {
+    const b = e.target.closest("button.lv"); if (!b) return;
+    const i = Number(b.dataset.i); const f = st.fridge[i];
+    if (f.level === "full") f.level = "low"; else st.fridge.splice(i, 1);
+    update();
+  });
+  function renderFridge() {
+    $("fridgeQuick").innerHTML = FRIDGE_QUICK.map(n => {
+      const on = st.fridge.some(x => norm(x.name) === norm(n));
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-n="${esc(n)}" aria-pressed="${on}">${esc(n)}</button>`;
+    }).join("");
+    $("fridge").innerHTML = st.fridge.length ? st.fridge.map((f, i) =>
+      `<span class="fitem ${f.level}"><button type="button" class="lv" data-i="${i}" aria-label="${esc(f.name)}の状態を切り替える">${esc(f.name)}<span class="tag">${f.level === "full" ? "十分" : "少し"}</span></button></span>`).join("")
+      : `<p class="empty">まだ何も登録されていません。</p>`;
+    const names = new Set(Object.keys(CAT_OF));
+    allDishes().forEach(d => d.items.forEach(i => names.add(i[0])));
+    $("ingredientList").innerHTML = [...names].map(n => `<option value="${esc(n)}">`).join("");
+  }
+
+  // その他の買い物
+  function addExtra(raw) {
+    raw.split(/[、,，]+/).map(s => s.trim()).filter(Boolean).forEach(name => {
+      if (!st.extras.some(x => norm(x) === norm(name))) st.extras.push(name);
+    });
+  }
+  $("addExtra").onclick = () => { if ($("extraInput").value.trim()) { addExtra($("extraInput").value); $("extraInput").value = ""; update(); } };
+  $("extraInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); $("addExtra").click(); } });
+  $("extraQuick").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    const i = st.extras.findIndex(x => norm(x) === norm(b.dataset.n));
+    if (i >= 0) st.extras.splice(i, 1); else st.extras.push(b.dataset.n);
+    update();
+  });
+  function renderExtraQuick() {
+    const all = [...new Set(EXTRA_QUICK.concat(st.extras))];
+    $("extraQuick").innerHTML = all.map(n => {
+      const on = st.extras.some(x => norm(x) === norm(n));
+      return `<button type="button" class="chip ${on ? "on" : ""}" data-n="${esc(n)}" aria-pressed="${on}">${on ? "✓ " : ""}${esc(n)}</button>`;
+    }).join("");
+  }
+
+  $("servings").addEventListener("input", e => { st.servings = Number(e.target.value); update(); });
+
+  // ---------- リスト作成 ----------
+  function fmtQty(q, unit) {
+    if (!unit) return "";
+    if (unit === "g") return q >= 1000 ? `${Math.round(q / 100) / 10}kg` : `${Math.ceil(q / 10) * 10}g`;
+    if (ROUND_UP.includes(unit)) {
+      const up = Math.ceil(q - 1e-9);
+      const exact = Math.round(q * 100) / 100;
+      return Math.abs(up - exact) > 0.01 ? `${up}${unit}（${exact}${unit}分）` : `${up}${unit}`;
+    }
+    return `${Math.round(q * 10) / 10}${unit}`;
+  }
+  function build() {
+    const scale = st.servings / 2;
+    const map = new Map();
+    st.dishes.forEach(p => {
+      const d = findDish(p.id); if (!d) return;
+      d.items.forEach(([name, q, unit]) => {
+        const k = norm(name) + "|" + unit;
+        if (!map.has(k)) map.set(k, { name, unit, qty: 0, check: q === 0, from: new Set() });
+        const it = map.get(k); it.qty += q * scale * p.times; it.from.add(d.name);
+      });
+    });
+    st.extras.forEach(name => {
+      const k = norm(name) + "|extra";
+      if (!map.has(k)) map.set(k, { name, unit: "", qty: 0, check: false, extra: true, from: new Set() });
+    });
+    const need = [], skipped = [];
+    map.forEach((it, k) => {
+      it.key = k;
+      const f = st.fridge.find(x => norm(x.name) === norm(it.name));
+      if (f && f.level === "full") { skipped.push(it.name); return; }
+      if (f && f.level === "low") it.low = true;
+      if (it.check && !f) it.checkOnly = true;
+      need.push(it);
+    });
+    return { need, skipped: [...new Set(skipped)] };
+  }
+
+  let current = { need: [], skipped: [] };
+  function renderList() {
+    current = build();
+    const { need, skipped } = current;
+    const meals = st.dishes.reduce((a, p) => a + p.times, 0);
+    $("stats").innerHTML = `<div class="stat"><b>${meals}</b><span>今週の料理（回）</span></div>
+      <div class="stat"><b>${need.length}</b><span>買うもの</span></div>
+      <div class="stat"><b>${skipped.length}</b><span>家にあるので不要</span></div>`;
+    if (!need.length) {
+      $("list").innerHTML = `<p class="empty">左の「今週食べたいもの」を選ぶと、ここにリストができます。</p>`;
+    } else {
+      $("list").innerHTML = CATS.map(c => {
+        const items = need.filter(it => (it.extra ? catOf(it.name) : catOf(it.name)) === c.id)
+          .sort((a, b) => Number(!!a.checkOnly) - Number(!!b.checkOnly) || a.name.localeCompare(b.name, "ja"));
+        if (!items.length) return "";
+        return `<div class="section"><h3>${c.name}<span class="cnt">${items.length}品</span></h3><ul class="list">` + items.map(it => {
+          const got = !!st.got[it.key];
+          const qty = it.checkOnly ? `<span class="warn">家にあるか確認</span>` : it.extra ? "" : esc(fmtQty(it.qty, it.unit));
+          const sub = it.extra ? "追加したもの" : [...it.from].join("・");
+          return `<li class="${got ? "got" : ""}"><label><input type="checkbox" data-key="${esc(it.key)}" ${got ? "checked" : ""}>
+            <span class="name">${esc(it.name)}${it.low ? `<span class="warn">少しある</span>` : ""}<small>${esc(sub)}</small></span>
+            <span class="qty">${qty}</span></label></li>`;
+        }).join("") + `</ul></div>`;
+      }).join("");
+    }
+    $("skipped").innerHTML = skipped.length ? `<div class="skipped">✅ 冷蔵庫にあるので買わない：${skipped.map(esc).join("、")}</div>` : "";
+    updateProgress();
+  }
+  function updateProgress() {
+    const total = current.need.length;
+    const got = current.need.filter(it => st.got[it.key]).length;
+    $("progText").textContent = `${got} / ${total} かごに入れた`;
+    $("progBar").style.width = total ? `${(got / total) * 100}%` : "0";
+  }
+  $("list").addEventListener("change", e => {
+    const c = e.target; if (!c.dataset.key) return;
+    if (c.checked) st.got[c.dataset.key] = true; else delete st.got[c.dataset.key];
+    c.closest("li").classList.toggle("got", c.checked);
+    save(); updateProgress();
+  });
+
+  // ---------- 操作ボタン ----------
+  $("copy").onclick = () => {
+    const { need } = current;
+    if (!need.length) { toast("リストが空です"); return; }
+    const lines = ["【買い出しリスト】"];
+    CATS.forEach(c => {
+      const items = need.filter(it => catOf(it.name) === c.id); if (!items.length) return;
+      lines.push("", c.name.replace(/^\S+\s/, "■ "));
+      items.forEach(it => lines.push(`□ ${it.name}${it.checkOnly ? "（家にあるか確認）" : it.extra ? "" : " " + fmtQty(it.qty, it.unit)}`));
+    });
+    copyText(lines.join("\n"));
+  };
+  $("toFridge").onclick = () => {
+    const got = current.need.filter(it => st.got[it.key]);
+    if (!got.length) { toast("チェックした（かごに入れた）ものがありません"); return; }
+    got.forEach(it => { addFridge(it.name, "full"); delete st.got[it.key]; });
+    toast(`${got.length}品を冷蔵庫に入れました`);
+    update();
+  };
+  $("print").onclick = () => window.print();
+  $("reset").onclick = () => {
+    if (!confirm("料理の選択とチェックを消して、新しい週をはじめますか？\n（冷蔵庫・登録した料理・追加の買い物は残ります）")) return;
+    st.dishes = []; st.got = {};
+    toast("新しい週をはじめました");
+    update();
+  };
+
+  function copyText(text) {
+    const ok = () => toast("コピーしました。メモアプリやLINEに貼り付けられます");
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, () => fallback(text, ok));
+    else fallback(text, ok);
+  }
+  function fallback(text, ok) {
+    const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); ok(); } catch (e) { toast("コピーできませんでした"); }
+    ta.remove();
+  }
+  let tt;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 2400); }
+
+  function update() {
+    $("servings").value = st.servings;
+    $("servingsVal").textContent = `${st.servings}人分`;
+    renderDishChips(); renderPicked(); renderFridge(); renderExtraQuick(); renderList();
+    save();
+  }
+  update();
+})();
+</script>
+</body>
+</html>
