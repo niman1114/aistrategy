@@ -158,7 +158,24 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .note { font-size: .78rem; color: var(--muted); margin-top: 14px; }
 
+  /* PC：左に入力、右に結果の2列 */
+  @media (min-width: 1000px) {
+    .wrap { max-width: 1360px; padding: 24px 24px 48px; }
+    .layout { display: grid; grid-template-columns: minmax(380px, 440px) 1fr; gap: 20px; align-items: start; }
+    .col-input {
+      position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto;
+      padding-right: 6px; scrollbar-width: thin; overscroll-behavior: contain;
+    }
+    .col-input .card { padding: 16px 14px; margin-bottom: 12px; }
+    .col-input .courses { grid-template-columns: 1fr 1fr; }
+    .col-result .card { margin-bottom: 0; }
+    .deadlines { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    #groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 0 24px; align-items: start; }
+  }
   @media print {
+    .layout { display: block !important; }
+    .col-input { position: static !important; max-height: none !important; overflow: visible !important; }
+
     body { background: #fff; }
     .no-print { display: none !important; }
     .card { box-shadow: none; break-inside: avoid; }
@@ -171,6 +188,9 @@
     <h1>🍶 宴会仕込み計算</h1>
     <p>人数とコースを選ぶと、食材ごとの仕込み量の目安と、卸への発注締め切りがすぐ分かります。</p>
   </header>
+
+  <div class="layout">
+  <div class="col-input">
 
   <section class="card no-print-inputs">
     <h2><span class="step">1</span>宴会の日と人数</h2>
@@ -238,6 +258,9 @@
     </details>
   </section>
 
+  </div>
+
+  <div class="col-result">
   <section class="card" id="result">
     <h2>📋 仕込み・発注の目安</h2>
     <div class="summary" id="summary"></div>
@@ -253,6 +276,8 @@
     </div>
     <p class="note">※ 量は一般的な宴会の目安です。店のレシピや仕入れ先の単位に合わせて調整してください。発注単位は切り上げで表示しています。</p>
   </section>
+  </div>
+  </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
